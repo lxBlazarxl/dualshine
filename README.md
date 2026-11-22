@@ -8,6 +8,8 @@ Pick an RGBA color with a live truecolor preview, browse presets, or hand the
 lightbar over to a rainbow. Nothing is written to the controller until you ask
 for it.
 
+Repository: **https://github.com/lxBlazarxl/dualshine**
+
 New here? See **[Setup and run](docs/SETUP.md)** for a step-by-step fresh
 install, prerequisites, permissions and uninstall instructions.
 
@@ -165,7 +167,10 @@ The doctor never prompts for a password and never writes to the controller.
 ## Build and run
 
 ```bash
-cd /path/to/ds4-tui
+# Fresh clone
+git clone https://github.com/lxBlazarxl/dualshine.git
+cd dualshine
+
 make build
 ./bin/ds4-tui          # transparent chrome
 ./bin/ds4-tui --opaque # solid dark background
@@ -299,7 +304,7 @@ The DS4 LED sysfs files are created root-owned, so this is a one-time system
 fix. Run:
 
 ```bash
-cd ds4-tui
+cd /path/to/dualshine
 sudo ./scripts/install-udev.sh
 # or
 make setup-led

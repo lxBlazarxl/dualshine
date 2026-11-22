@@ -67,7 +67,7 @@ go mod verify
 From the project directory:
 
 ```bash
-cd /path/to/ds4-tui
+cd /path/to/dualshine
 make build
 ./bin/ds4-tui --version
 ```
