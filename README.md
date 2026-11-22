@@ -2,7 +2,7 @@
   <img src="docs/icon.png" alt="DUALSHINE icon" width="96" height="96">
 </p>
 
-# DUALSHINE
+<h1 align="center">DUALSHINE</h1>
 
 A DualShock 4 lightbar studio for the terminal, built with
 [Bubble Tea](https://github.com/charmbracelet/bubbletea) and
