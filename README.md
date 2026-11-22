@@ -95,6 +95,35 @@ to WSL with `usbipd` and the Linux `hid-sony` driver exposes LED class devices,
 but Bluetooth passthrough and LED access vary by setup. Native Windows support
 would need a separate HIDAPI-based backend instead of sysfs/scripts.
 
+### Kernel and driver requirements
+
+The sysfs backend is not guaranteed to exist on every Linux system. It needs:
+
+- `CONFIG_LEDS_CLASS` (`y` or `m`) for `/sys/class/leds`.
+- `CONFIG_HID_SONY` (`y` or `m`) for the DS4 LED class entries.
+- The controller bound to `hid-sony` (not hidden by a userspace driver).
+- A mounted `sysfs` and udev for unprivileged access.
+
+Standard desktop distributions generally include these. Minimal, embedded,
+container, Android, and WSL kernels may not. The path names are dynamic
+(`input39:red`, etc.); DUALSHINE globs for them, but it cannot create them.
+
+The presence of `/sys/class/leds` alone is not sufficient: it also contains
+keyboard and network LEDs. There must be DS4 `*:red`, `*:green`, and `*:blue`
+entries.
+
+Useful checks:
+
+```bash
+ls /sys/class/leds
+lsmod | grep hid_sony
+sudo modprobe hid-sony          # only if the module exists
+dmesg | grep -i sony
+grep -E 'CONFIG_LEDS_CLASS|CONFIG_HID_SONY' /boot/config-$(uname -r)
+```
+
+`--doctor` now reports the kernel LED class and `hid-sony` state as well.
+
 ## Requirements
 
 - Linux and a DualShock 4 connected over USB or Bluetooth.
@@ -120,7 +149,7 @@ DUALSHINE is **not** dependency-free. There are three separate layers.
 
 | Dependency | Needed for |
 | --- | --- |
-| Linux with the LED class at `/sys/class/leds` | The controller lightbar interface |
+| Linux with `CONFIG_LEDS_CLASS` and `hid-sony` | The controller lightbar interface |
 | A DualShock 4 over USB or Bluetooth | Real hardware use |
 | `ds4-led` on `PATH` | Applying/keeping static colors and stopping a keeper |
 | `ds4-rb` on `PATH` | Rainbow mode when the LED files are writable |
@@ -165,9 +194,10 @@ Before launching the TUI, run the preflight check:
 make doctor
 ```
 
-It reports `OK`, `WARN`, `FAIL`, and `INFO` for the platform, Go toolchain,
-`make`, `ds4-led`, `ds4-rb`, controller/LED permissions, `sudo`, `bash`,
-`udevadm`, the udev rule, TTY support, and color capability.
+It reports `OK`, `WARN`, `FAIL`, and `INFO` for the platform, kernel LED
+class, `hid-sony`, Go toolchain, `make`, `ds4-led`, `ds4-rb`, controller/LED
+permissions, `sudo`, `bash`, `udevadm`, the udev rule, TTY support, and color
+capability.
 
 - Exit `0`: no hard blockers. Warnings may include “no controller connected”
   or “read-only LEDs”; demo mode still works.
@@ -367,6 +397,8 @@ not start the rainbow.
 | `could not stop the running ds4-led color keeper` | The old keeper is root-owned and sudo was not available. Run `sudo ds4-led --stop`, then start the rainbow again. |
 | Colors look flat | Your terminal may not support truecolor, or `NO_COLOR` is set. DUALSHINE shows a monochrome fallback in that case. |
 | Windows / macOS | Not supported natively. The hardware backend is Linux-only; see [Platform support](#platform-support). |
+| `/sys/class/leds` missing | Kernel lacks `CONFIG_LEDS_CLASS` or sysfs is not mounted; the sysfs backend cannot work. |
+| No DS4 `*:red`/`*:green`/`*:blue` entries | `hid-sony` is missing or not bound. Check `lsmod`, try `sudo modprobe hid-sony`, and inspect `dmesg`. |
 | Window too small | The minimum full layout is 36×13. Below that, a compact notice tells you the required size. |
 | Text is hard to read over a busy wallpaper | Run with `--opaque`, or use a darker/less busy terminal background. |
 
