@@ -9,6 +9,10 @@ This guide assumes you are starting from a fresh shell.
 ## 1. Prerequisites
 
 - **Linux** with a DualShock 4 connected over USB or Bluetooth.
+  This project is Linux-only: it uses `/sys/class/leds`, `sudo`, and the
+  `ds4-led`/`ds4-rb` shell scripts. Windows and macOS are not supported
+  natively. WSL2 may work only with USB passthrough and is not officially
+  supported.
 - **Go 1.24 or newer** (`go version`).
 - **GNU make** (optional, but used by the examples below).
 - **`ds4-led` and `ds4-rb`** available on `PATH`.
@@ -235,6 +239,7 @@ Environment:
 | `could not stop the running ds4-led color keeper` | Run `sudo ds4-led --stop`, then start the rainbow again. |
 | Account locked after sudo attempts | Run `faillock --user "$USER"` then `faillock --user "$USER" --reset`, or wait for the lockout timeout. |
 | Colors look flat | Check `NO_COLOR`; use a truecolor terminal. Monochrome mode is intentional otherwise. |
+| Windows / macOS | Not supported natively; the hardware backend is Linux-only. |
 | Text hard to read | Use `--opaque`, or a darker less busy terminal background. |
 | Terminal too small | The minimum full layout is 36×13; below that a size notice is shown. |
 | Stuck TUI | From another terminal: `pkill -u "$USER" -f './bin/ds4-tui'` then `stty sane`. |

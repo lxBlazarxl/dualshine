@@ -84,6 +84,17 @@ picker, all four sliders and the full key bar:
 
 ![Compact layout](docs/compact.png)
 
+## Platform support
+
+**Linux only today.** The hardware backend uses `/sys/class/leds`, Linux
+process groups, `sudo`, and the `ds4-led`/`ds4-rb` shell scripts. A native
+Windows build currently does not compile, and macOS is not supported.
+
+WSL2 is not officially supported. It may work when a USB DS4 is passed through
+to WSL with `usbipd` and the Linux `hid-sony` driver exposes LED class devices,
+but Bluetooth passthrough and LED access vary by setup. Native Windows support
+would need a separate HIDAPI-based backend instead of sysfs/scripts.
+
 ## Requirements
 
 - Linux and a DualShock 4 connected over USB or Bluetooth.
@@ -355,6 +366,7 @@ not start the rainbow.
 | Account locked after sudo attempts | Run `faillock --user "$USER"` then `faillock --user "$USER" --reset`, or wait for the lockout timeout. |
 | `could not stop the running ds4-led color keeper` | The old keeper is root-owned and sudo was not available. Run `sudo ds4-led --stop`, then start the rainbow again. |
 | Colors look flat | Your terminal may not support truecolor, or `NO_COLOR` is set. DUALSHINE shows a monochrome fallback in that case. |
+| Windows / macOS | Not supported natively. The hardware backend is Linux-only; see [Platform support](#platform-support). |
 | Window too small | The minimum full layout is 36×13. Below that, a compact notice tells you the required size. |
 | Text is hard to read over a busy wallpaper | Run with `--opaque`, or use a darker/less busy terminal background. |
 
