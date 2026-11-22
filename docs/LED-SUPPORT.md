@@ -15,7 +15,8 @@ lsusb | grep -i sony
 | Result | Meaning | Go to |
 | --- | --- | --- |
 | `/sys/class/leds` missing | The kernel has no LED class (or sysfs is not mounted) | [Section A](#a-sysclassleds-is-missing) |
-| Class exists, no DS4 `*:red` entries | LED class is present, but `hid-sony` is missing or not bound | [Section B](#b-led-class-exists-but-there-are-no-ds4-entries) |
+| Class exists, no DS4 `*:red` entries, no Sony USB/HID device | Controller is not connected | Connect it, then recheck |
+| Class exists, no DS4 `*:red` entries, Sony USB/HID device present | LED class is present, but `hid-sony` is missing or not bound | [Section B](#b-led-class-exists-but-there-are-no-ds4-entries) |
 | DS4 entries exist, writing fails | Permissions issue | [Section C](#c-led-entries-exist-but-writing-is-denied) |
 | Sony `/dev/hidrawN` exists, no LED entries | HID device is present but kernel LED interface is not | [Section D](#d-sony-hidraw-exists-but-no-led-class) |
 
@@ -126,7 +127,15 @@ avoid the LED class, but it is not implemented in this sysfs-backed version.
 ## B. LED class exists but there are no DS4 entries
 
 This means the LED class is available but `hid-sony` is not bound to the
-controller.
+controller. Confirm the controller itself is connected first:
+
+```bash
+lsusb | grep -i sony
+```
+
+If that prints nothing, the controller is not connected; use USB or pair it
+over Bluetooth. If it prints a Sony device but there are still no LED entries,
+then continue with `hid-sony`:
 
 ```bash
 ls /sys/class/leds

@@ -417,7 +417,8 @@ not start the rainbow.
 | Symptom | Fix |
 | --- | --- |
 | Not sure what is missing | Run `./bin/ds4-tui --doctor` (or `make doctor`). |
-| `NO DS4` badge | Connect the controller over USB or Bluetooth and press `r`. |
+| `NO DS4` badge | No DS4 is detected. Connect it over USB or Bluetooth and press `r`. |
+| `DS4 · NO LEDS` badge | The controller is detected, but the kernel exposed no LED entries. Load `hid-sony` and press `r`. |
 | `Read-only LEDs` / sudo every apply | Run `sudo ./scripts/install-udev.sh` once, then press `r`. |
 | `ds4-led was not found in PATH` | Put `ds4-led` in `PATH` or `~/.local/bin`. |
 | `ds4-rb was not found in PATH` | Put `ds4-rb` in `PATH` or `/usr/local/bin`. |

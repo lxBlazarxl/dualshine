@@ -239,7 +239,8 @@ Environment:
 | Symptom | Fix |
 | --- | --- |
 | Not sure what is missing | Run `./bin/ds4-tui --doctor` (or `make doctor`). |
-| `NO DS4` badge | Connect the controller and press `r`. Check `ls /sys/class/leds/`. |
+| `NO DS4` badge | No DS4 is detected. Connect it and press `r`; check `lsusb | grep -i sony`. |
+| `DS4 · NO LEDS` badge | The controller is present, but no LED entries exist. Load `hid-sony` and press `r`. |
 | `/sys/class/leds` missing | Kernel lacks `CONFIG_LEDS_CLASS` or sysfs is not mounted; see [LED support troubleshooting](LED-SUPPORT.md#a-sysclassleds-is-missing). This backend cannot work, but preview/demo still runs. |
 | No DS4 `*:red`/`*:green`/`*:blue` entries | `hid-sony` is missing or not bound; see [LED support troubleshooting](LED-SUPPORT.md#b-led-class-exists-but-there-are-no-ds4-entries). |
 | Sony hidraw exists, no LED class | The current sysfs backend cannot use hidraw. Enable `hid-sony` or run `--demo`; direct HID output is not implemented. |
