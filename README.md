@@ -122,7 +122,50 @@ dmesg | grep -i sony
 grep -E 'CONFIG_LEDS_CLASS|CONFIG_HID_SONY' /boot/config-$(uname -r)
 ```
 
-`--doctor` now reports the kernel LED class and `hid-sony` state as well.
+`--doctor` now reports the kernel LED class, `hid-sony` state, and any Sony
+`/dev/hidrawN` device it can see.
+
+### If the kernel does not expose the LED class
+
+The TUI still launches in this case. The picker, preview, presets, hex input,
+and demo mode all work; **Apply and Rainbow report an error** because there is
+no sysfs path to write. The header shows `NO LED CLASS` / `SYSFS UNAVAILABLE`.
+
+Try, in order:
+
+1. Load the driver if it exists:
+
+   ```bash
+   sudo modprobe hid-sony
+   ```
+
+   Reconnect the controller and press `r`.
+
+2. Install or boot a kernel built with `CONFIG_LEDS_CLASS` and
+   `CONFIG_HID_SONY`. Standard desktop distribution kernels normally include
+   these; minimal or custom kernels may not.
+
+3. Check whether the controller is hidden by another driver:
+
+   ```bash
+   dmesg | grep -i sony
+   lsusb | grep -i sony
+   ls /sys/bus/hid/drivers/
+   ```
+
+   A userspace tool such as `ds4drv` or Steam Input can claim the device. Stop
+   it, replug, and retry.
+
+If a Sony `/dev/hidrawN` device exists but no LED class entries do, the kernel
+has exposed the HID device but not the LED interface. A direct HID output
+backend could use that path, but it is **not implemented** in the current
+sysfs-backed version. In that situation today, use a kernel with `hid-sony`
+or run `--demo` for the UI/preview.
+
+There is no way for DUALSHINE to create `/sys/class/leds` entries; only the
+kernel driver can. If neither the LED class nor a supported driver is
+available, the app can run as a preview/demo tool but cannot drive the
+lightbar.
 
 ## Requirements
 
@@ -195,9 +238,9 @@ make doctor
 ```
 
 It reports `OK`, `WARN`, `FAIL`, and `INFO` for the platform, kernel LED
-class, `hid-sony`, Go toolchain, `make`, `ds4-led`, `ds4-rb`, controller/LED
-permissions, `sudo`, `bash`, `udevadm`, the udev rule, TTY support, and color
-capability.
+class, `hid-sony`, Sony hidraw devices, Go toolchain, `make`, `ds4-led`,
+`ds4-rb`, controller/LED permissions, `sudo`, `bash`, `udevadm`, the udev rule,
+TTY support, and color capability.
 
 - Exit `0`: no hard blockers. Warnings may include “no controller connected”
   or “read-only LEDs”; demo mode still works.
@@ -397,8 +440,9 @@ not start the rainbow.
 | `could not stop the running ds4-led color keeper` | The old keeper is root-owned and sudo was not available. Run `sudo ds4-led --stop`, then start the rainbow again. |
 | Colors look flat | Your terminal may not support truecolor, or `NO_COLOR` is set. DUALSHINE shows a monochrome fallback in that case. |
 | Windows / macOS | Not supported natively. The hardware backend is Linux-only; see [Platform support](#platform-support). |
-| `/sys/class/leds` missing | Kernel lacks `CONFIG_LEDS_CLASS` or sysfs is not mounted; the sysfs backend cannot work. |
+| `/sys/class/leds` missing | Kernel lacks `CONFIG_LEDS_CLASS` or sysfs is not mounted; the sysfs backend cannot work. The TUI still runs in preview/demo mode. |
 | No DS4 `*:red`/`*:green`/`*:blue` entries | `hid-sony` is missing or not bound. Check `lsmod`, try `sudo modprobe hid-sony`, and inspect `dmesg`. |
+| Sony hidraw exists, no LED class | The current sysfs backend cannot use hidraw. Enable `hid-sony` or run `--demo`; direct HID output is not implemented. |
 | Window too small | The minimum full layout is 36×13. Below that, a compact notice tells you the required size. |
 | Text is hard to read over a busy wallpaper | Run with `--opaque`, or use a darker/less busy terminal background. |
 

@@ -10,7 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-var version = "1.0.6"
+var version = "1.0.7"
 
 func main() {
 	var (

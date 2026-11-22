@@ -98,9 +98,10 @@ Run the dependency and hardware preflight:
 make doctor
 ```
 
-It checks the platform, kernel LED class, `hid-sony`, Go/make (for
-developers), `ds4-led`, `ds4-rb`, the controller, LED permissions, `sudo`,
-`bash`, `udevadm`, the udev rule, TTY support, and color capability.
+It checks the platform, kernel LED class, `hid-sony`, Sony hidraw devices,
+Go/make (for developers), `ds4-led`, `ds4-rb`, the controller, LED
+permissions, `sudo`, `bash`, `udevadm`, the udev rule, TTY support, and color
+capability.
 
 - Exit code `0`: no hard blockers; warnings are allowed.
 - Exit code `1`: a required dependency or platform requirement is missing.
@@ -235,8 +236,9 @@ Environment:
 | --- | --- |
 | Not sure what is missing | Run `./bin/ds4-tui --doctor` (or `make doctor`). |
 | `NO DS4` badge | Connect the controller and press `r`. Check `ls /sys/class/leds/`. |
-| `/sys/class/leds` missing | Kernel lacks `CONFIG_LEDS_CLASS` or sysfs is not mounted; this backend cannot work. |
+| `/sys/class/leds` missing | Kernel lacks `CONFIG_LEDS_CLASS` or sysfs is not mounted; this backend cannot work, but preview/demo still runs. |
 | No DS4 `*:red`/`*:green`/`*:blue` entries | `hid-sony` is missing or not bound. Check `lsmod`, try `sudo modprobe hid-sony`, and inspect `dmesg`. |
+| Sony hidraw exists, no LED class | The current sysfs backend cannot use hidraw. Enable `hid-sony` or run `--demo`; direct HID output is not implemented. |
 | `ds4-led was not found in PATH` | Install it in `~/.local/bin` or `/usr/local/bin`. |
 | `ds4-rb was not found in PATH` | Install it there too, or install the udev rule and use the writable path. |
 | `Read-only LEDs` / password on every apply | Run `sudo ./scripts/install-udev.sh`, then press `r`. |

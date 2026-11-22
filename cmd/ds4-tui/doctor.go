@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -191,6 +192,21 @@ func runDoctor(w io.Writer, version string) int {
 		}
 	}
 
+	// If the kernel does not expose LED class devices, a Sony HID interface
+	// may still be present as /dev/hidrawN. The current backend cannot use it,
+	// but knowing that distinguishes a missing controller from a missing
+	// kernel driver.
+	if !st.Found {
+		hidraws := sonyHIDRawDevices()
+		if len(hidraws) > 0 {
+			detail := "Sony HID device present: " + strings.Join(hidraws, ", ")
+			r.add(checkWarn, "hidraw", detail,
+				"The kernel is not exposing it through the LED class. Enable hid-sony or use --demo; direct HID output is not implemented yet.")
+		} else {
+			r.add(checkInfo, "hidraw", "no Sony HID device detected", "")
+		}
+	}
+
 	// Privilege and helper requirements for the read-only path.
 	sudoPath, sudoErr := exec.LookPath("sudo")
 	if sudoErr == nil {
@@ -266,4 +282,24 @@ func isTerminal(f *os.File) bool {
 	}
 	_, err := unix.IoctlGetTermios(int(f.Fd()), unix.TCGETS)
 	return err == nil
+}
+
+func sonyHIDRawDevices() []string {
+	dirs, _ := filepath.Glob("/sys/class/hidraw/hidraw*")
+	var out []string
+	for _, dir := range dirs {
+		uevent, err := os.ReadFile(filepath.Join(dir, "device", "uevent"))
+		if err != nil {
+			continue
+		}
+		if !strings.Contains(strings.ToUpper(string(uevent)), "0000054C") {
+			continue
+		}
+		dev := "/dev/" + filepath.Base(dir)
+		if _, err := os.Stat(dev); err != nil {
+			continue
+		}
+		out = append(out, dev)
+	}
+	return out
 }

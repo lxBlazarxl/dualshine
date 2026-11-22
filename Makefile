@@ -1,5 +1,5 @@
 BINARY    := ds4-tui
-VERSION   ?= 1.0.6
+VERSION   ?= 1.0.7
 PREFIX    ?= $(HOME)/.local
 BIN_DIR   := bin
 GOFLAGS   ?=
