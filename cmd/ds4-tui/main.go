@@ -15,10 +15,12 @@ var version = "1.0.5"
 func main() {
 	var (
 		demo    bool
+		doctor  bool
 		opaque  bool
 		showVer bool
 	)
 	flag.BoolVar(&demo, "demo", false, "run with a virtual controller; nothing is written to hardware")
+	flag.BoolVar(&doctor, "doctor", false, "check dependencies, permissions and hardware, then exit")
 	flag.BoolVar(&opaque, "opaque", false, "paint a solid dark background instead of using the terminal background")
 	flag.BoolVar(&showVer, "version", false, "print the version and exit")
 	flag.Parse()
@@ -26,6 +28,9 @@ func main() {
 	if showVer {
 		fmt.Printf("ds4-tui %s\n", version)
 		return
+	}
+	if doctor {
+		os.Exit(runDoctor(os.Stdout, version))
 	}
 	if os.Getenv("DS4_TUI_DEMO") == "1" {
 		demo = true
