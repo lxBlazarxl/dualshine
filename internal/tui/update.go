@@ -318,7 +318,7 @@ func (m Model) applyCurrent() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.status.LEDBinary == "" {
-		m.setNotice(noticeError, "ds4-led was not found in PATH.")
+		m.setNotice(noticeError, "LED backend is not available.")
 		return m, nil
 	}
 	if m.rainbowStarting {
@@ -340,7 +340,7 @@ func (m Model) applyCurrent() (tea.Model, tea.Cmd) {
 		cmd := m.svc.ColorCommand(c)
 		if cmd == nil {
 			m.applying = false
-			m.setNotice(noticeError, "ds4-led was not found in PATH.")
+			m.setNotice(noticeError, "Could not build LED command.")
 			return m, nil
 		}
 		return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
@@ -470,7 +470,7 @@ func (m Model) toggleRainbow() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.status.Writable && m.status.RainbowBinary == "" {
-		m.setNotice(noticeError, "ds4-rb was not found in PATH.")
+		m.setNotice(noticeError, "Rainbow backend is not available.")
 		return m, nil
 	}
 	// Root-owned LEDs need one sudo authentication before the privileged

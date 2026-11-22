@@ -256,3 +256,117 @@ func TestStartPrivilegedRainbowWithFakeSudo(t *testing.T) {
 		t.Fatal("privileged rainbow did not stop")
 	}
 }
+
+func TestNativeApplyDirectWrites(t *testing.T) {
+	origLedDir := ledDir
+	defer func() { ledDir = origLedDir }()
+
+	tempDir := t.TempDir()
+	ledDir = tempDir
+
+	mkMockLED := func(name string) string {
+		p := filepath.Join(tempDir, "mock:"+name)
+		if err := os.MkdirAll(p, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		f := filepath.Join(p, "brightness")
+		if err := os.WriteFile(f, []byte("0\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+
+	red := mkMockLED("red")
+	green := mkMockLED("green")
+	blue := mkMockLED("blue")
+	global := mkMockLED("global")
+
+	s := &System{} // No ledPath set
+	out, err := s.Apply(context.Background(), color.RGBA{R: 200, G: 100, B: 50, A: 255})
+	if err != nil {
+		t.Fatalf("Apply returned error: %v", err)
+	}
+	if !strings.Contains(out, "DualShock 4 LED set") {
+		t.Fatalf("unexpected output: %q", out)
+	}
+
+	readVal := func(p string) string {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(b))
+	}
+
+	if got := readVal(red); got != "200" {
+		t.Errorf("red = %q, want 200", got)
+	}
+	if got := readVal(green); got != "100" {
+		t.Errorf("green = %q, want 100", got)
+	}
+	if got := readVal(blue); got != "50" {
+		t.Errorf("blue = %q, want 50", got)
+	}
+	if got := readVal(global); got != "1" {
+		t.Errorf("global = %q, want 1", got)
+	}
+}
+
+func TestStartNativeRainbow(t *testing.T) {
+	dir := t.TempDir()
+	red := filepath.Join(dir, "red")
+	green := filepath.Join(dir, "green")
+	blue := filepath.Join(dir, "blue")
+	global := filepath.Join(dir, "global")
+	for _, p := range []string{red, green, blue, global} {
+		if err := os.WriteFile(p, []byte("0\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	s := &System{}
+	st := Status{
+		Found:      true,
+		Writable:   true,
+		RedPath:    red,
+		GreenPath:  green,
+		BluePath:   blue,
+		GlobalPath: global,
+	}
+
+	rb, err := s.startNativeRainbow(st)
+	if err != nil {
+		t.Fatalf("startNativeRainbow error: %v", err)
+	}
+	if rb.PID() <= 0 {
+		t.Fatalf("invalid PID: %d", rb.PID())
+	}
+
+	// Verify it wrote the initial frame
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		b, _ := os.ReadFile(red)
+		if strings.TrimSpace(string(b)) == "255" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if b, _ := os.ReadFile(red); strings.TrimSpace(string(b)) != "255" {
+		t.Fatalf("initial red frame not written: %s", string(b))
+	}
+
+	if err := rb.Stop(); err != nil {
+		t.Fatalf("Stop error: %v", err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- rb.Wait() }()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("wait error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("native rainbow did not stop in time")
+	}
+}

@@ -187,7 +187,7 @@ This is the normal root-owned sysfs case. Apply the one-time udev rule:
 sudo ./scripts/install-udev.sh
 ```
 
-Then press `r` in the TUI. Alternatively, let `ds4-led`/the rainbow helper ask
+Then press `r` in the TUI. Alternatively, let DUALSHINE ask
 for sudo when applying.
 
 ## D. Sony hidraw exists but no LED class

@@ -150,14 +150,18 @@ func runDoctor(w io.Writer, version string) int {
 	svc := ds4.NewSystem()
 	st := svc.Detect()
 
-	// External helpers.
-	if st.LEDBinary != "" {
+	// External helpers or built-in backends.
+	if st.LEDBinary == "built-in" {
+		r.add(checkOK, "ds4-led", "built-in native sysfs", "")
+	} else if st.LEDBinary != "" {
 		r.add(checkOK, "ds4-led", st.LEDBinary, "")
 	} else {
 		r.add(checkFail, "ds4-led", "not found on PATH",
 			"Install it in ~/.local/bin or /usr/local/bin; static color apply needs it.")
 	}
-	if st.RainbowBinary != "" {
+	if st.RainbowBinary == "built-in" {
+		r.add(checkOK, "ds4-rb", "built-in native rainbow", "")
+	} else if st.RainbowBinary != "" {
 		r.add(checkOK, "ds4-rb", st.RainbowBinary, "")
 	} else {
 		r.add(checkWarn, "ds4-rb", "not found on PATH",

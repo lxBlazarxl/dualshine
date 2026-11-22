@@ -365,7 +365,7 @@ func (m Model) contextStatus(width int) (string, noticeKind) {
 		return "Scanning for a DualShock 4 lightbar…", noticeInfo
 	}
 	if m.status.LEDBinary == "" {
-		return "ds4-led was not found in PATH.", noticeError
+		return "LED backend is not available.", noticeError
 	}
 	if !m.status.LEDClass {
 		if width < 64 {

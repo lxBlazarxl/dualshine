@@ -181,7 +181,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case execApplyDoneMsg:
 		m.applying = false
 		if msg.err != nil {
-			m.setNotice(noticeError, "ds4-led did not finish cleanly. Check the terminal output above, then press a to retry.")
+			m.setNotice(noticeError, "Failed to apply color. Check the terminal output above, then press a to retry.")
 		} else {
 			m.lastApplied = msg.color
 			m.hasApplied = true

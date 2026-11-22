@@ -19,9 +19,10 @@ import (
 )
 
 const (
-	ledDir  = "/sys/class/leds"
 	pidFile = "/tmp/ds4-led.pid"
 )
+
+var ledDir = "/sys/class/leds"
 
 // System talks to the real controller through the ds4-led and ds4-rb scripts.
 type System struct {
@@ -66,6 +67,12 @@ func (s *System) Detect() Status {
 		LEDBinary:     s.ledPath,
 		RainbowBinary: s.rainbowPath,
 		CheckedAt:     time.Now(),
+	}
+	if st.LEDBinary == "" {
+		st.LEDBinary = "built-in"
+	}
+	if st.RainbowBinary == "" {
+		st.RainbowBinary = "built-in"
 	}
 	if info, err := os.Stat(ledDir); err == nil && info.IsDir() {
 		st.LEDClass = true
@@ -121,38 +128,83 @@ func (s *System) Detect() Status {
 	return st
 }
 
-// Apply runs ds4-led in its normal persistent mode. The caller should only use
-// this when the LED files are writable, otherwise the command may need a
-// password prompt that cannot be answered while the TUI owns the terminal.
+// Apply applies the chosen color to the controller. If ds4-led is installed it is used
+// in persistent mode; otherwise the color is written directly to sysfs.
 func (s *System) Apply(ctx context.Context, c color.RGBA) (string, error) {
-	cmd := s.ColorCommand(c)
-	if cmd == nil {
-		return "", errors.New("ds4-led was not found in PATH")
-	}
-	cmd = exec.CommandContext(ctx, cmd.Path, cmd.Args[1:]...)
-	out, err := cmd.CombinedOutput()
-	text := strings.TrimSpace(string(out))
-	if err != nil {
-		if text == "" {
-			text = err.Error()
+	if s.ledPath != "" {
+		cmd := s.ColorCommand(c)
+		if cmd == nil {
+			return "", errors.New("ds4-led was not found in PATH")
 		}
-		return text, errors.New(text)
+		cmd = exec.CommandContext(ctx, cmd.Path, cmd.Args[1:]...)
+		out, err := cmd.CombinedOutput()
+		text := strings.TrimSpace(string(out))
+		if err != nil {
+			if text == "" {
+				text = err.Error()
+			}
+			return text, errors.New(text)
+		}
+		return text, nil
 	}
-	return text, nil
+	return s.applyNative(c)
 }
 
-// ColorCommand returns the command used for an interactive apply. The command
-// inherits the terminal, so ds4-led can safely invoke sudo when necessary.
+func (s *System) applyNative(c color.RGBA) (string, error) {
+	st := s.Detect()
+	if !st.Found {
+		return "", errors.New("no DualShock 4 lightbar found")
+	}
+	r, g, b := c.Effective()
+	if st.GlobalPath != "" {
+		_ = os.WriteFile(st.GlobalPath, []byte("1\n"), 0o644)
+	}
+	if err := os.WriteFile(st.RedPath, []byte(strconv.Itoa(int(r))+"\n"), 0o644); err != nil {
+		return "", fmt.Errorf("failed to write red LED: %w", err)
+	}
+	if err := os.WriteFile(st.GreenPath, []byte(strconv.Itoa(int(g))+"\n"), 0o644); err != nil {
+		return "", fmt.Errorf("failed to write green LED: %w", err)
+	}
+	if err := os.WriteFile(st.BluePath, []byte(strconv.Itoa(int(b))+"\n"), 0o644); err != nil {
+		return "", fmt.Errorf("failed to write blue LED: %w", err)
+	}
+	if keeperPID() > 0 {
+		_ = s.stopKeeper(st.Writable)
+	}
+	return fmt.Sprintf("DualShock 4 LED set: %s (R:%d G:%d B:%d)", c.Hex(), r, g, b), nil
+}
+
+// ColorCommand returns the command used for an interactive apply.
+// If ds4-led is found, it is invoked so it can prompt for sudo if necessary.
+// If not found, a shell or sudo command is synthesized to write directly to sysfs.
 func (s *System) ColorCommand(c color.RGBA) *exec.Cmd {
-	if s.ledPath == "" {
+	if s.ledPath != "" {
+		return exec.Command(s.ledPath,
+			strconv.Itoa(int(c.R)),
+			strconv.Itoa(int(c.G)),
+			strconv.Itoa(int(c.B)),
+			ledBrightnessArg(c.A),
+		)
+	}
+	st := s.Detect()
+	if !st.Found {
 		return nil
 	}
-	return exec.Command(s.ledPath,
-		strconv.Itoa(int(c.R)),
-		strconv.Itoa(int(c.G)),
-		strconv.Itoa(int(c.B)),
-		ledBrightnessArg(c.A),
-	)
+	r, g, b := c.Effective()
+	script := fmt.Sprintf("if [ -n %q ] && [ -e %q ]; then printf '1\\n' > %q 2>/dev/null || true; fi; printf '%%s\\n' %d > %q && printf '%%s\\n' %d > %q && printf '%%s\\n' %d > %q",
+		st.GlobalPath, st.GlobalPath, st.GlobalPath,
+		r, st.RedPath,
+		g, st.GreenPath,
+		b, st.BluePath)
+
+	if st.Writable {
+		return exec.Command("/bin/sh", "-c", script)
+	}
+	sudoPath, err := exec.LookPath("sudo")
+	if err != nil {
+		return nil
+	}
+	return exec.Command(sudoPath, "/bin/sh", "-c", script)
 }
 
 // AuthCommand validates (and caches) sudo credentials interactively. The
@@ -165,9 +217,9 @@ func (s *System) AuthCommand() *exec.Cmd {
 }
 
 // StartRainbow starts the rainbow animation. Writable LED files use the
-// user's ds4-rb script directly. Root-owned files use a small fixed helper run
-// through one sudo authentication; that helper watches this process and a
-// stop file, so it cannot outlive the TUI.
+// user's ds4-rb script directly if available, or the built-in native rainbow.
+// Root-owned files use a small fixed helper run through one sudo authentication;
+// that helper watches this process and a stop file, so it cannot outlive the TUI.
 func (s *System) StartRainbow() (Rainbow, error) {
 	st := s.Detect()
 	if !st.Found {
@@ -181,10 +233,10 @@ func (s *System) StartRainbow() (Rainbow, error) {
 	}
 
 	if st.Writable {
-		if s.rainbowPath == "" {
-			return nil, errors.New("ds4-rb was not found in PATH")
+		if s.rainbowPath != "" {
+			return s.startScriptRainbow()
 		}
-		return s.startScriptRainbow()
+		return s.startNativeRainbow(st)
 	}
 	return s.startPrivilegedRainbow(st)
 }
@@ -209,34 +261,52 @@ func (s *System) startScriptRainbow() (Rainbow, error) {
 }
 
 func (s *System) stopKeeper(writable bool) error {
-	if s.ledPath == "" {
-		return errors.New("ds4-led was not found in PATH, so the running color keeper cannot be stopped")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	if s.ledPath != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	var cmd *exec.Cmd
-	if writable {
-		cmd = exec.CommandContext(ctx, s.ledPath, "--stop")
-	} else {
-		sudoPath, err := exec.LookPath("sudo")
-		if err != nil {
-			return errors.New("sudo is required to stop the running color keeper")
+		var cmd *exec.Cmd
+		if writable {
+			cmd = exec.CommandContext(ctx, s.ledPath, "--stop")
+		} else {
+			sudoPath, err := exec.LookPath("sudo")
+			if err != nil {
+				return errors.New("sudo is required to stop the running color keeper")
+			}
+			cmd = exec.CommandContext(ctx, sudoPath, "-n", "--", s.ledPath, "--stop")
 		}
-		cmd = exec.CommandContext(ctx, sudoPath, "-n", "--", s.ledPath, "--stop")
+		out, err := cmd.CombinedOutput()
+		if keeperPID() == 0 {
+			return nil
+		}
+		msg := strings.TrimSpace(string(out))
+		if msg == "" && err != nil {
+			msg = err.Error()
+		}
+		if msg == "" {
+			msg = "the keeper is still running"
+		}
+		return fmt.Errorf("could not stop the running ds4-led color keeper: %s", msg)
 	}
-	out, err := cmd.CombinedOutput()
+
+	pid := keeperPID()
+	if pid == 0 {
+		return nil
+	}
+	if err := syscall.Kill(pid, syscall.SIGTERM); err == nil {
+		_ = os.Remove(pidFile)
+		return nil
+	}
+	if !writable {
+		if sudoPath, err := exec.LookPath("sudo"); err == nil {
+			_ = exec.Command(sudoPath, "-n", "--", "kill", strconv.Itoa(pid)).Run()
+			_ = exec.Command(sudoPath, "-n", "--", "rm", "-f", pidFile).Run()
+		}
+	}
 	if keeperPID() == 0 {
 		return nil
 	}
-	msg := strings.TrimSpace(string(out))
-	if msg == "" && err != nil {
-		msg = err.Error()
-	}
-	if msg == "" {
-		msg = "the keeper is still running"
-	}
-	return fmt.Errorf("could not stop the running ds4-led color keeper: %s", msg)
+	return errors.New("could not stop the running color keeper")
 }
 
 const privilegedRainbowScript = `
@@ -501,6 +571,104 @@ func (p *privilegedRainbow) Kill() error { return p.Stop() }
 
 func (p *privilegedRainbow) Output() string {
 	return strings.TrimSpace(p.out.String())
+}
+
+type nativeRainbow struct {
+	done     chan struct{}
+	stop     chan struct{}
+	stopOnce sync.Once
+}
+
+func (p *nativeRainbow) PID() int { return os.Getpid() }
+
+func (p *nativeRainbow) Wait() error {
+	<-p.done
+	return nil
+}
+
+func (p *nativeRainbow) Stop() error {
+	p.stopOnce.Do(func() { close(p.stop) })
+	return nil
+}
+
+func (p *nativeRainbow) Kill() error { return p.Stop() }
+
+func (p *nativeRainbow) Output() string { return "" }
+
+func (s *System) startNativeRainbow(st Status) (Rainbow, error) {
+	p := &nativeRainbow{
+		done: make(chan struct{}),
+		stop: make(chan struct{}),
+	}
+	go func() {
+		defer close(p.done)
+		if st.GlobalPath != "" {
+			_ = os.WriteFile(st.GlobalPath, []byte("1\n"), 0o644)
+		}
+		apply := func(r, g, b int) bool {
+			_ = os.WriteFile(st.RedPath, []byte(strconv.Itoa(r)+"\n"), 0o644)
+			_ = os.WriteFile(st.GreenPath, []byte(strconv.Itoa(g)+"\n"), 0o644)
+			_ = os.WriteFile(st.BluePath, []byte(strconv.Itoa(b)+"\n"), 0o644)
+			select {
+			case <-p.stop:
+				return false
+			default:
+				return true
+			}
+		}
+		tick := func() bool {
+			select {
+			case <-p.stop:
+				return false
+			case <-time.After(30 * time.Millisecond):
+				return true
+			}
+		}
+
+		r, g, b := 255, 0, 0
+		if !apply(r, g, b) {
+			return
+		}
+		for {
+			for g < 255 {
+				g += 5
+				if !apply(r, g, b) || !tick() {
+					return
+				}
+			}
+			for r > 0 {
+				r -= 5
+				if !apply(r, g, b) || !tick() {
+					return
+				}
+			}
+			for b < 255 {
+				b += 5
+				if !apply(r, g, b) || !tick() {
+					return
+				}
+			}
+			for g > 0 {
+				g -= 5
+				if !apply(r, g, b) || !tick() {
+					return
+				}
+			}
+			for r < 255 {
+				r += 5
+				if !apply(r, g, b) || !tick() {
+					return
+				}
+			}
+			for b > 0 {
+				b -= 5
+				if !apply(r, g, b) || !tick() {
+					return
+				}
+			}
+		}
+	}()
+	return p, nil
 }
 
 func signalGroup(cmd *exec.Cmd, sig syscall.Signal) error {

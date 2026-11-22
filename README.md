@@ -16,9 +16,8 @@ Repository: **https://github.com/lxBlazarxl/dualshine**
 
 ## Install and run
 
-**Requirements:** Linux, a DualShock 4, `ds4-led` and `ds4-rb` on `PATH`, and
-Go 1.24+ with `make` (plain `go build` works too). See
-[Requirements](#requirements) for the full list.
+**Requirements:** Linux, a DualShock 4, and Go 1.24+ with `make` (plain `go
+build` works too). See [Requirements](#requirements) for the full list.
 
 ```bash
 # 1. Clone
@@ -73,9 +72,9 @@ chrome. Color controls and swatches remain fully colored.*
   scaled by alpha, so you can judge the color before applying it.
 - **Presets and direct hex entry.** 62 curated presets, plus `#RGB`, `#RGBA`,
   `#RRGGBB` and `#RRGGBBAA` input for exact values.
-- **Rainbow mode.** Runs `ds4-rb` when the LEDs are writable, or asks for sudo
-  once and runs a fixed privileged helper when they are root-owned. Either way
-  it stops a competing `ds4-led` keeper first and shuts down with the TUI.
+- **Rainbow mode.** Runs a native in-memory color cycle loop (or an external
+  `ds4-rb` script if present), or asks for sudo once and runs a fixed privileged
+  helper when LEDs are root-owned. Shuts down cleanly with the TUI.
 - **Transparent by default.** The base layer and card panels use the terminal's
   own background, so a transparent terminal/wallpaper shows through. Color
   swatches, the picker, sliders and the preview keep their colors. Pass
@@ -83,9 +82,9 @@ chrome. Color controls and swatches remain fully colored.*
 - **Responsive by construction.** Every screen is laid out from the current
   terminal size. It works down to 36×13 cells, has a dedicated tiny-terminal
   fallback, and caps/centers itself on very large terminals.
-- **Permission-aware.** If the Lightbar sysfs files are writable it applies
-  asynchronously. If they are root-owned, it hands the terminal to `ds4-led`
-  so `sudo` can prompt normally.
+- **Permission-aware.** If the lightbar sysfs files are writable it applies
+  asynchronously without prompting. If they are root-owned, it prompts for
+  `sudo` interactively on the terminal, or you can install the one-time udev rule.
 - **Demo mode.** Explore the whole UI without a controller or hardware writes.
 - **Monochrome fallback.** `NO_COLOR` / `TERM=dumb` gets a readable
   character-cell version instead of a broken color approximation.
@@ -106,8 +105,8 @@ picker, all four sliders and the full key bar:
 ## Platform support
 
 **Linux only today.** The hardware backend uses `/sys/class/leds`, Linux
-process groups, `sudo`, and the `ds4-led`/`ds4-rb` shell scripts. A native
-Windows build currently does not compile, and macOS is not supported.
+process groups, `sudo`, and sysfs. A native Windows build currently does not
+compile, and macOS is not supported.
 
 WSL2 is not officially supported. It may work when a USB DS4 is passed through
 to WSL with `usbipd` and the Linux `hid-sony` driver exposes LED class devices,
@@ -194,15 +193,12 @@ lightbar.
 ## Requirements
 
 - Linux and a DualShock 4 connected over USB or Bluetooth.
-- The external `ds4-led` helper in `PATH` (not bundled with this project):
-  - `ds4-led <r> <g> <b> [brightness]`
-  - `ds4-led --stop`
-- The external `ds4-rb` helper in `PATH` for the writable-LED rainbow path. If
-  the LED files are root-owned, the TUI uses its sudo-assisted helper instead.
-- `sudo` for read-only LED files, both for `ds4-led`'s elevation and for the
-  one-time rainbow authentication.
+- `sudo` for read-only LED files, or the one-time udev rule for passwordless access.
 - Go 1.24+ to build, and `make` for the convenience targets (plain `go build`
   also works).
+- (Optional) Custom external `ds4-led` and `ds4-rb` helpers on `PATH` if you
+  prefer your own scripts, though DUALSHINE includes native built-in sysfs
+  drivers for both static colors and rainbow mode.
 - A terminal with truecolor support is strongly recommended for the preview,
   picker and gradients.
 - Transparent mode assumes a dark terminal background. If you use a light
@@ -210,7 +206,7 @@ lightbar.
 
 ## Dependencies
 
-DUALSHINE is **not** dependency-free. There are three separate layers.
+DUALSHINE is self-contained and drives hardware directly via sysfs.
 
 ### Runtime system dependencies
 
@@ -218,13 +214,11 @@ DUALSHINE is **not** dependency-free. There are three separate layers.
 | --- | --- |
 | Linux with `CONFIG_LEDS_CLASS` and `hid-sony` | The controller lightbar interface |
 | A DualShock 4 over USB or Bluetooth | Real hardware use |
-| `ds4-led` on `PATH` | Applying/keeping static colors and stopping a keeper |
-| `ds4-rb` on `PATH` | Rainbow mode when the LED files are writable |
 | `sudo` + `bash` | Read-only LED apply/rainbow fallback |
 | `udevadm` | Optional one-time permission setup only |
 
-There is no network service, database, daemon, Python, or Node.js runtime
-dependency. Demo mode needs only the Go binary.
+There is no external helper script, network service, database, daemon, Python,
+or Node.js runtime dependency. Demo mode needs only the Go binary.
 
 ### Direct Go modules
 
@@ -262,8 +256,8 @@ make doctor
 ```
 
 It reports `OK`, `WARN`, `FAIL`, and `INFO` for the platform, kernel LED
-class, `hid-sony`, Sony hidraw devices, Go toolchain, `make`, `ds4-led`,
-`ds4-rb`, controller/LED permissions, `sudo`, `bash`, `udevadm`, the udev rule,
+class, `hid-sony`, Sony hidraw devices, Go toolchain, `make`,
+controller/LED permissions, `sudo`, `bash`, `udevadm`, the udev rule,
 TTY support, and color capability.
 
 - Exit `0`: no hard blockers. Warnings may include “no controller connected”
@@ -346,28 +340,19 @@ scrollable and paged when it does not fit:
 
 ## How it talks to the controller
 
-The TUI does not write LED values directly.
+DUALSHINE talks directly to the Linux kernel LED sysfs interface (`/sys/class/leds`).
 
-**Static colors** are applied by running:
+**Static colors** are applied by writing alpha-scaled RGB brightness directly to
+the controller's sysfs LED class files (`*:red/brightness`,
+`*:green/brightness`, `*:blue/brightness`). If an external `ds4-led` script is
+installed on `PATH`, DUALSHINE will invoke it for compatibility.
 
-```bash
-ds4-led <r> <g> <b> <brightness>
-```
-
-in the script's default persistent mode, so the chosen color keeps being
-re-asserted if Steam Input or another tool tries to take the lightbar back.
 The starting color is read from the controller so the picker reflects what is
 currently lit.
 
-`ds4-led` has an ambiguous brightness syntax: values 0–100 mean percent, while
-101–255 mean raw 8-bit values. DUALSHINE maps its 0–255 alpha through that
-syntax (alpha ≤100 is passed as a percentage) so the hardware brightness stays
-linear across the entire slider. For example, `A 50` is sent as `20%`.
-
-If the LED files are not writable, applying suspends the TUI and runs
-`ds4-led` on the real terminal, which lets the script's built-in `sudo` prompt
-work normally. If they are writable, the apply happens in the background and
-the UI stays live.
+If the LED files are not writable, applying temporarily suspends the TUI and
+invokes `sudo` on the real terminal to prompt for your password. If they are
+writable, the apply happens instantly in the background and the UI stays live.
 
 ### Remove the sudo prompts permanently
 
@@ -389,25 +374,23 @@ The script:
 - fixes the currently connected controller immediately;
 - reloads udev and triggers a change event.
 
-After that, press `r` in the TUI. The badge should say `DS4 READY`, applying
-will no longer pause for sudo, and rainbow mode uses `ds4-rb` directly. To undo:
+After that, press `r` in the TUI. The badge should say `DS4 READY`, and applying
+will no longer pause for sudo. To undo:
 
 ```bash
 sudo rm /etc/udev/rules.d/99-dualshock4-led.rules
 ```
 
-**Rainbow mode** first stops any `ds4-led` keeper, otherwise the two would
-fight over the lightbar.
+**Rainbow mode** cycles colors smoothly across the spectrum.
 
-- If the LED files are writable, the TUI runs `ds4-rb` in its own process group
-  and stops it with `SIGINT` on request or quit.
+- If the LED files are writable, the TUI runs its native in-memory rainbow
+  engine (or an external `ds4-rb` script if present on `PATH`).
 - If the LED files are root-owned, pressing space opens a normal `sudo -v`
   prompt. After authentication, the TUI starts a small fixed helper through
-  `sudo -n` that reproduces the ds4-rb color cycle. The helper runs only while
+  `sudo -n` that reproduces the color cycle. The helper runs only while
   the TUI is alive: it watches the TUI process and a private stop file, so it
   exits within a frame when you stop the rainbow, quit, or the TUI crashes.
-  This avoids the `ds4-rb` permission error without leaving a root process
-  behind.
+  This avoids permission errors without leaving a root process behind.
 
 If sudo is cancelled or fails, the TUI reports it in the status line and does
 not start the rainbow.
@@ -420,12 +403,9 @@ not start the rainbow.
 | `NO DS4` badge | No DS4 is detected. Connect it over USB or Bluetooth and press `r`. |
 | `DS4 · NO LEDS` badge | The controller is detected, but the kernel exposed no LED entries. Load `hid-sony` and press `r`. |
 | `Read-only LEDs` / sudo every apply | Run `sudo ./scripts/install-udev.sh` once, then press `r`. |
-| `ds4-led was not found in PATH` | Put `ds4-led` in `PATH` or `~/.local/bin`. |
-| `ds4-rb was not found in PATH` | Put `ds4-rb` in `PATH` or `/usr/local/bin`. |
 | Rainbow asks for a password | That is expected when the LED files are root-owned. Authenticate once; the helper then runs in the background. Cancel it to abort. |
 | `sudo authentication failed or was cancelled` | Enter the password once, carefully; it is not echoed. Do not retry 3× — check `faillock --user "$USER"` if needed. Or configure writable LEDs via udev. |
 | Account locked after sudo attempts | Run `faillock --user "$USER"` then `faillock --user "$USER" --reset`, or wait for the lockout timeout. |
-| `could not stop the running ds4-led color keeper` | The old keeper is root-owned and sudo was not available. Run `sudo ds4-led --stop`, then start the rainbow again. |
 | Colors look flat | Your terminal may not support truecolor, or `NO_COLOR` is set. DUALSHINE shows a monochrome fallback in that case. |
 | Windows / macOS | Not supported natively. The hardware backend is Linux-only; see [Platform support](#platform-support). |
 | `/sys/class/leds` missing | Kernel lacks `CONFIG_LEDS_CLASS` or sysfs is not mounted; see [LED support troubleshooting](docs/LED-SUPPORT.md#a-sysclassleds-is-missing). The TUI still runs in preview/demo mode. |
@@ -452,8 +432,7 @@ The code is split into:
 
 - `internal/color` — RGBA/HSV math, hex parsing, contrast, brightness scaling.
 - `internal/picker` — HSV + alpha editing state.
-- `internal/ds4` — controller detection, `ds4-led` invocation, and `ds4-rb`
-  process lifecycle. Includes a demo backend.
+- `internal/ds4` — controller detection, native sysfs lightbar control, and rainbow animation engine.
 - `internal/tui` — Bubble Tea model/update/view, responsive layout, picker,
   presets, rainbow and help screens.
 
