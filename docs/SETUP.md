@@ -73,10 +73,12 @@ go mod verify
 
 ## 3. Build
 
-From the project directory:
+Clone and build:
 
 ```bash
-cd /path/to/dualshine
+git clone https://github.com/lxBlazarxl/dualshine.git
+cd dualshine
+
 make build
 ./bin/ds4-tui --version
 ```

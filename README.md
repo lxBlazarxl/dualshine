@@ -14,19 +14,22 @@ for it.
 
 Repository: **https://github.com/lxBlazarxl/dualshine**
 
-New here? See **[Setup and run](docs/SETUP.md)** for a step-by-step fresh
-install, prerequisites, permissions and uninstall instructions.
+## Install and run
 
-## Quick start
+**Requirements:** Linux, a DualShock 4, `ds4-led` and `ds4-rb` on `PATH`, and
+Go 1.24+ with `make` (plain `go build` works too). See
+[Requirements](#requirements) for the full list.
 
 ```bash
-# 1. Check the external helpers this project drives
-command -v ds4-led ds4-rb
+# 1. Clone
+git clone https://github.com/lxBlazarxl/dualshine.git
+cd dualshine
 
 # 2. Build
 make build
+./bin/ds4-tui --version
 
-# 3. Check that nothing is missing
+# 3. Check dependencies and hardware
 ./bin/ds4-tui --doctor
 
 # 4. Try the UI without hardware
@@ -36,14 +39,26 @@ make build
 ./bin/ds4-tui
 ```
 
-If the status says `NEEDS SUDO`, either let `ds4-led`/rainbow prompt once, or
-run the one-time permission setup:
+Press `?` inside the TUI for all keys. The main views are `c` color picker,
+`p` presets, and `w` rainbow.
+
+If the status says `NEEDS SUDO`, either let apply/rainbow ask once, or install
+the one-time udev rule:
 
 ```bash
 sudo ./scripts/install-udev.sh
+# or
+make setup-led
 ```
 
-Then press `r` in the TUI. Full details: [docs/SETUP.md](docs/SETUP.md).
+Then press `r` in the TUI. To install the binary on your `PATH`:
+
+```bash
+make install       # ~/.local/bin/ds4-tui
+```
+
+The detailed setup guide, including permissions and troubleshooting, is in
+[docs/SETUP.md](docs/SETUP.md).
 
 ![Color picker](docs/color-picker.png)
 
@@ -256,43 +271,6 @@ TTY support, and color capability.
 - Exit `1`: a required dependency or platform requirement is missing.
 
 The doctor never prompts for a password and never writes to the controller.
-
-## Build and run
-
-```bash
-# Fresh clone
-git clone https://github.com/lxBlazarxl/dualshine.git
-cd dualshine
-
-make build
-./bin/ds4-tui          # transparent chrome
-./bin/ds4-tui --opaque # solid dark background
-```
-
-Or build/run directly from source:
-
-```bash
-go build -o bin/ds4-tui ./cmd/ds4-tui
-go run ./cmd/ds4-tui
-```
-
-Install into `~/.local/bin` (override with `PREFIX=/usr/local`). The target
-directory must be on `PATH`:
-
-```bash
-make install
-```
-
-### Try it without hardware
-
-```bash
-./bin/ds4-tui --demo
-# or
-DS4_TUI_DEMO=1 ./bin/ds4-tui
-```
-
-Demo mode reports a connected virtual controller. Colors and rainbow are
-simulated and nothing is written to sysfs.
 
 ## Command-line options
 
