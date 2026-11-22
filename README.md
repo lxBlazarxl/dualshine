@@ -97,6 +97,10 @@ would need a separate HIDAPI-based backend instead of sysfs/scripts.
 
 ### Kernel and driver requirements
 
+For a step-by-step repair decision tree — including sysfs mounts, kernel
+config checks, distro kernel installation, `hid-sony`, permissions, and
+containers/WSL — see **[LED support troubleshooting](docs/LED-SUPPORT.md)**.
+
 The sysfs backend is not guaranteed to exist on every Linux system. It needs:
 
 - `CONFIG_LEDS_CLASS` (`y` or `m`) for `/sys/class/leds`.
@@ -123,7 +127,8 @@ grep -E 'CONFIG_LEDS_CLASS|CONFIG_HID_SONY' /boot/config-$(uname -r)
 ```
 
 `--doctor` now reports the kernel LED class, `hid-sony` state, and any Sony
-`/dev/hidrawN` device it can see.
+`/dev/hidrawN` device it can see. The full repair guide is in
+[LED support troubleshooting](docs/LED-SUPPORT.md).
 
 ### If the kernel does not expose the LED class
 
@@ -440,8 +445,8 @@ not start the rainbow.
 | `could not stop the running ds4-led color keeper` | The old keeper is root-owned and sudo was not available. Run `sudo ds4-led --stop`, then start the rainbow again. |
 | Colors look flat | Your terminal may not support truecolor, or `NO_COLOR` is set. DUALSHINE shows a monochrome fallback in that case. |
 | Windows / macOS | Not supported natively. The hardware backend is Linux-only; see [Platform support](#platform-support). |
-| `/sys/class/leds` missing | Kernel lacks `CONFIG_LEDS_CLASS` or sysfs is not mounted; the sysfs backend cannot work. The TUI still runs in preview/demo mode. |
-| No DS4 `*:red`/`*:green`/`*:blue` entries | `hid-sony` is missing or not bound. Check `lsmod`, try `sudo modprobe hid-sony`, and inspect `dmesg`. |
+| `/sys/class/leds` missing | Kernel lacks `CONFIG_LEDS_CLASS` or sysfs is not mounted; see [LED support troubleshooting](docs/LED-SUPPORT.md#a-sysclassleds-is-missing). The TUI still runs in preview/demo mode. |
+| No DS4 `*:red`/`*:green`/`*:blue` entries | `hid-sony` is missing or not bound. See [LED support troubleshooting](docs/LED-SUPPORT.md#b-led-class-exists-but-there-are-no-ds4-entries). |
 | Sony hidraw exists, no LED class | The current sysfs backend cannot use hidraw. Enable `hid-sony` or run `--demo`; direct HID output is not implemented. |
 | Window too small | The minimum full layout is 36×13. Below that, a compact notice tells you the required size. |
 | Text is hard to read over a busy wallpaper | Run with `--opaque`, or use a darker/less busy terminal background. |
