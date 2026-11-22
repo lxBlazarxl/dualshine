@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/icon.png" alt="DUALSHINE icon" width="96" height="96">
+</p>
+
 # DUALSHINE
 
 A DualShock 4 lightbar studio for the terminal, built with
