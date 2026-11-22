@@ -71,6 +71,8 @@ func (s *System) Detect() Status {
 		st.LEDClass = true
 	}
 
+	st.ControllerSeen = sonyDS4Present()
+
 	reds := ledFiles("red")
 	greens := ledFiles("green")
 	blues := ledFiles("blue")
@@ -86,10 +88,13 @@ func (s *System) Detect() Status {
 	st.Sony = redSony && greenSony && blueSony && len(reds) > 0 && len(greens) > 0 && len(blues) > 0
 
 	if len(reds) == 0 || len(greens) == 0 || len(blues) == 0 {
-		if st.LEDClass {
-			st.Err = "kernel LED class exists, but no DS4 LED entries were found; check that hid-sony is loaded"
-		} else {
+		switch {
+		case !st.LEDClass:
 			st.Err = "kernel LED class /sys/class/leds is not available; CONFIG_LEDS_CLASS may be disabled"
+		case st.ControllerSeen:
+			st.Err = "DS4 is connected, but no LED entries were exposed; hid-sony is missing or not bound"
+		default:
+			st.Err = "no DualShock 4 detected; connect it over USB or Bluetooth"
 		}
 		st.KeeperPID = keeperPID()
 		return st
@@ -336,6 +341,46 @@ func ledBrightnessArg(a uint8) string {
 	}
 	pct := int((uint32(a)*100 + 127) / 255)
 	return strconv.Itoa(pct) + "%"
+}
+
+// sonyDS4Present checks the HID and USB device trees without requiring
+// hid-sony or LED class entries. This lets the UI distinguish a disconnected
+// controller from one that is present but has no LED interface.
+func sonyDS4Present() bool {
+	hidDevices, _ := filepath.Glob(filepath.Join("/sys/bus/hid/devices", "*"))
+	for _, device := range hidDevices {
+		name := strings.ToUpper(filepath.Base(device))
+		if !strings.Contains(name, ":054C:") {
+			continue
+		}
+		parts := strings.SplitN(name, ":", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		product := strings.SplitN(parts[2], ".", 2)[0]
+		switch product {
+		case "05C4", "09CC": // known DualShock 4 product IDs
+			return true
+		}
+	}
+
+	// Some kernels expose the USB parent even if HID enumeration is delayed.
+	usbDevices, _ := filepath.Glob(filepath.Join("/sys/bus/usb/devices", "*"))
+	for _, device := range usbDevices {
+		vendor, err := os.ReadFile(filepath.Join(device, "idVendor"))
+		if err != nil || !strings.EqualFold(strings.TrimSpace(string(vendor)), "054c") {
+			continue
+		}
+		product, err := os.ReadFile(filepath.Join(device, "idProduct"))
+		if err != nil {
+			continue
+		}
+		switch strings.ToUpper(strings.TrimSpace(string(product))) {
+		case "05C4", "09CC":
+			return true
+		}
+	}
+	return false
 }
 
 func ledFiles(kind string) []string {

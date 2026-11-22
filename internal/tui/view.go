@@ -193,6 +193,11 @@ func (m Model) statusBadge(full bool) string {
 		if !full {
 			b.label = "NO LEDS"
 		}
+	case m.status.ControllerSeen && !m.status.Found:
+		b = badge{"◐", "DS4 · NO LEDS", colAmber}
+		if !full {
+			b.label = "NO LEDS"
+		}
 	case m.demo:
 		b = badge{"●", "DEMO MODE", colPink}
 		if !full {
@@ -227,6 +232,8 @@ func (m Model) headerContext() string {
 		return fg(colDim).Render("SCANNING FOR LIGHTBAR")
 	case !m.status.LEDClass:
 		return fg(colRed).Render("SYSFS LED BACKEND UNAVAILABLE")
+	case m.status.ControllerSeen && !m.status.Found:
+		return fg(colAmber).Render("DS4 CONNECTED · HID-SONY NEEDED")
 	case m.demo:
 		return fg(colDim).Render("DEMO · NOTHING IS WRITTEN")
 	case m.rainbowRunning:
@@ -367,10 +374,16 @@ func (m Model) contextStatus(width int) (string, noticeKind) {
 		return "Kernel LED class is unavailable. Run --doctor; the sysfs backend cannot work on this kernel.", noticeError
 	}
 	if !m.status.Found {
-		if width < 64 {
-			return "No DS4 LED entries · check hid-sony, then press r.", noticeWarn
+		if m.status.ControllerSeen {
+			if width < 64 {
+				return "DS4 connected · no LED entries · load hid-sony, then press r.", noticeWarn
+			}
+			return "DS4 is connected, but the kernel exposed no LED entries. Load hid-sony, then press r.", noticeWarn
 		}
-		return "No DS4 LED entries found. Check that hid-sony is loaded, then press r.", noticeWarn
+		if width < 64 {
+			return "No DS4 connected · connect it over USB/Bluetooth, then press r.", noticeWarn
+		}
+		return "No DualShock 4 detected — connect it over USB or Bluetooth, then press r.", noticeWarn
 	}
 	if !m.status.Writable {
 		switch {

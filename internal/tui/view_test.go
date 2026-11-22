@@ -143,9 +143,14 @@ func TestStatusBadges(t *testing.T) {
 		t.Fatalf("demo badge = %q", got)
 	}
 	m.demo = false
+	m.status.ControllerSeen = false
 	m.status.Found = false
 	if got := ansi.Strip(m.statusBadge(true)); !strings.Contains(got, "NO DS4") {
 		t.Fatalf("missing badge = %q", got)
+	}
+	m.status.ControllerSeen = true
+	if got := ansi.Strip(m.statusBadge(true)); !strings.Contains(got, "NO LEDS") {
+		t.Fatalf("connected-without-LEDs badge = %q", got)
 	}
 	m.status.Found = true
 	m.status.Writable = false
@@ -275,5 +280,19 @@ func TestTransparentBackground(t *testing.T) {
 	view = m.View()
 	if !strings.Contains(view, "48;2;8;8;13") {
 		t.Fatal("opaque view did not paint the base background color")
+	}
+}
+
+func TestControllerPresenceMessages(t *testing.T) {
+	m := newTestModel(100, 30)
+	m.status.LEDClass = true
+	m.status.Found = false
+	m.status.ControllerSeen = false
+	if got, _ := m.contextStatus(100); !strings.Contains(ansi.Strip(got), "No DualShock 4 detected") {
+		t.Fatalf("disconnected message = %q", got)
+	}
+	m.status.ControllerSeen = true
+	if got, _ := m.contextStatus(100); !strings.Contains(ansi.Strip(got), "DS4 is connected") || !strings.Contains(ansi.Strip(got), "hid-sony") {
+		t.Fatalf("connected/no-LED message = %q", got)
 	}
 }

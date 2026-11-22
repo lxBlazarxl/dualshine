@@ -314,7 +314,7 @@ func (m Model) applyCurrent() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if !m.status.Found {
-		m.setNotice(noticeError, "No DS4 LED entries found. Check hid-sony, then press r.")
+		m.setNotice(noticeError, m.status.Err+"; press r after fixing.")
 		return m, nil
 	}
 	if m.status.LEDBinary == "" {
@@ -466,7 +466,7 @@ func (m Model) toggleRainbow() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if !m.status.Found {
-		m.setNotice(noticeError, "No DS4 LED entries found. Check hid-sony, then press r.")
+		m.setNotice(noticeError, m.status.Err+"; press r after fixing.")
 		return m, nil
 	}
 	if m.status.Writable && m.status.RainbowBinary == "" {

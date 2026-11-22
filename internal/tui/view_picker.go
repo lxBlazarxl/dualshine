@@ -119,8 +119,10 @@ func (m Model) previewText(width int) []string {
 		state = fgBold(colGreen).Render("● ON LIGHTBAR")
 	} else if m.statusKnown && !m.status.LEDClass {
 		state = fgBold(colRed).Render("SYSFS UNAVAILABLE")
+	} else if m.statusKnown && !m.status.Found && m.status.ControllerSeen {
+		state = fgBold(colAmber).Render("DS4 · NO LED ENTRIES")
 	} else if m.statusKnown && !m.status.Found {
-		state = fgBold(colRed).Render("NO HARDWARE")
+		state = fgBold(colRed).Render("NO CONTROLLER")
 	}
 
 	rgbLine := fgBold(colRed).Render("R") + " " + fg(colMuted).Render(fmt.Sprintf("%03d", c.R)) + "   " +
