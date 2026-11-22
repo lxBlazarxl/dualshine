@@ -188,6 +188,11 @@ func (m Model) statusBadge(full bool) string {
 		if !full {
 			b.label = "SCAN"
 		}
+	case !m.status.LEDClass:
+		b = badge{"✕", "NO LED CLASS", colRed}
+		if !full {
+			b.label = "NO LEDS"
+		}
 	case m.demo:
 		b = badge{"●", "DEMO MODE", colPink}
 		if !full {
@@ -218,6 +223,10 @@ func (m Model) headerContext() string {
 	switch {
 	case !colorEnabled:
 		return fg(colDim).Render("NO_COLOR · MONOCHROME")
+	case !m.statusKnown:
+		return fg(colDim).Render("SCANNING FOR LIGHTBAR")
+	case !m.status.LEDClass:
+		return fg(colRed).Render("SYSFS LED BACKEND UNAVAILABLE")
 	case m.demo:
 		return fg(colDim).Render("DEMO · NOTHING IS WRITTEN")
 	case m.rainbowRunning:
@@ -351,11 +360,17 @@ func (m Model) contextStatus(width int) (string, noticeKind) {
 	if m.status.LEDBinary == "" {
 		return "ds4-led was not found in PATH.", noticeError
 	}
+	if !m.status.LEDClass {
+		if width < 64 {
+			return "No /sys/class/leds · kernel LED support missing.", noticeError
+		}
+		return "Kernel LED class is unavailable. Run --doctor; the sysfs backend cannot work on this kernel.", noticeError
+	}
 	if !m.status.Found {
 		if width < 64 {
-			return "No controller · connect it, then press r.", noticeWarn
+			return "No DS4 LED entries · check hid-sony, then press r.", noticeWarn
 		}
-		return "No controller detected — connect it over USB or Bluetooth, then press r.", noticeWarn
+		return "No DS4 LED entries found. Check that hid-sony is loaded, then press r.", noticeWarn
 	}
 	if !m.status.Writable {
 		switch {

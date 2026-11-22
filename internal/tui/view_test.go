@@ -152,6 +152,11 @@ func TestStatusBadges(t *testing.T) {
 	if got := ansi.Strip(m.statusBadge(true)); !strings.Contains(got, "SUDO") {
 		t.Fatalf("sudo badge = %q", got)
 	}
+
+	m.status.LEDClass = false
+	if got := ansi.Strip(m.statusBadge(true)); !strings.Contains(got, "NO LED") {
+		t.Fatalf("missing LED class badge = %q", got)
+	}
 }
 
 func (m Model) contentWidth() int {

@@ -148,7 +148,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		if first && !msg.status.Found && msg.status.Err != "" {
-			m.setAutoNotice(noticeInfo, "No lightbar detected. Connect your controller, then press r.")
+			m.setAutoNotice(noticeWarn, msg.status.Err+". Press ? or run --doctor for details.")
 		}
 		m.clampPresetWindow()
 		return m, nil

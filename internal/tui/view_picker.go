@@ -117,6 +117,8 @@ func (m Model) previewText(width int) []string {
 		state = fgBold(colAccent2).Render("RAINBOW ACTIVE")
 	} else if m.hasApplied && c == m.lastApplied {
 		state = fgBold(colGreen).Render("● ON LIGHTBAR")
+	} else if m.statusKnown && !m.status.LEDClass {
+		state = fgBold(colRed).Render("SYSFS UNAVAILABLE")
 	} else if m.statusKnown && !m.status.Found {
 		state = fgBold(colRed).Render("NO HARDWARE")
 	}

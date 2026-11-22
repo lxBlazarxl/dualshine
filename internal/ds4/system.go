@@ -67,6 +67,9 @@ func (s *System) Detect() Status {
 		RainbowBinary: s.rainbowPath,
 		CheckedAt:     time.Now(),
 	}
+	if info, err := os.Stat(ledDir); err == nil && info.IsDir() {
+		st.LEDClass = true
+	}
 
 	reds := ledFiles("red")
 	greens := ledFiles("green")
@@ -83,7 +86,11 @@ func (s *System) Detect() Status {
 	st.Sony = redSony && greenSony && blueSony && len(reds) > 0 && len(greens) > 0 && len(blues) > 0
 
 	if len(reds) == 0 || len(greens) == 0 || len(blues) == 0 {
-		st.Err = "no DualShock 4 lightbar found in /sys/class/leds"
+		if st.LEDClass {
+			st.Err = "kernel LED class exists, but no DS4 LED entries were found; check that hid-sony is loaded"
+		} else {
+			st.Err = "kernel LED class /sys/class/leds is not available; CONFIG_LEDS_CLASS may be disabled"
+		}
 		st.KeeperPID = keeperPID()
 		return st
 	}

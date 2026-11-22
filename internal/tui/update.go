@@ -309,8 +309,12 @@ func (m Model) applyCurrent() (tea.Model, tea.Cmd) {
 		m.setNotice(noticeWarn, "Still scanning for a controller — try again in a moment.")
 		return m, nil
 	}
+	if !m.status.LEDClass {
+		m.setNotice(noticeError, "Kernel LED class unavailable. Run --doctor; the sysfs backend cannot work.")
+		return m, nil
+	}
 	if !m.status.Found {
-		m.setNotice(noticeError, "No DualShock 4 found. Connect it, then press r to rescan.")
+		m.setNotice(noticeError, "No DS4 LED entries found. Check hid-sony, then press r.")
 		return m, nil
 	}
 	if m.status.LEDBinary == "" {
@@ -457,8 +461,12 @@ func (m Model) toggleRainbow() (tea.Model, tea.Cmd) {
 		m.setNotice(noticeWarn, "Still scanning for a controller — try again in a moment.")
 		return m, nil
 	}
+	if !m.status.LEDClass {
+		m.setNotice(noticeError, "Kernel LED class unavailable. Run --doctor; the sysfs backend cannot work.")
+		return m, nil
+	}
 	if !m.status.Found {
-		m.setNotice(noticeError, "No DualShock 4 found. Connect it, then press r to rescan.")
+		m.setNotice(noticeError, "No DS4 LED entries found. Check hid-sony, then press r.")
 		return m, nil
 	}
 	if m.status.Writable && m.status.RainbowBinary == "" {

@@ -11,6 +11,7 @@ import (
 
 // Status describes the controller, the LED files and the helper scripts.
 type Status struct {
+	LEDClass   bool // /sys/class/leds exists
 	Found      bool
 	Sony       bool // the LED paths belong to a Sony device (VID 054C)
 	Writable   bool
@@ -66,6 +67,7 @@ func (d *Demo) Detect() Status {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return Status{
+		LEDClass:      true,
 		Found:         true,
 		Sony:          true,
 		Writable:      true,
