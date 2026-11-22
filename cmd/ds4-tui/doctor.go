@@ -102,6 +102,36 @@ func runDoctor(w io.Writer, version string) int {
 			"DUALSHINE is Linux-only because it uses /sys/class/leds.")
 	}
 
+	// Kernel support for the sysfs LED backend.
+	if _, err := os.Stat("/sys/class/leds"); err != nil {
+		r.add(checkFail, "kernel LED class", "/sys/class/leds is missing",
+			"Kernel needs CONFIG_LEDS_CLASS and a mounted sysfs. The sysfs backend cannot work.")
+	} else {
+		r.add(checkOK, "kernel LED class", "/sys/class/leds", "")
+	}
+	hidLoaded := false
+	for _, p := range []string{"/sys/module/hid_sony", "/sys/bus/hid/drivers/hid-sony"} {
+		if _, err := os.Stat(p); err == nil {
+			hidLoaded = true
+			break
+		}
+	}
+	switch {
+	case hidLoaded:
+		r.add(checkOK, "hid-sony", "driver loaded/registered", "")
+	default:
+		if _, err := exec.LookPath("modinfo"); err != nil {
+			r.add(checkInfo, "hid-sony", "state unknown (modinfo not found)",
+				"Check 'lsmod | grep hid_sony' or load the module manually.")
+		} else if exec.Command("modinfo", "hid_sony").Run() == nil {
+			r.add(checkInfo, "hid-sony", "module available but not loaded",
+				"It normally loads when the controller connects. If not: sudo modprobe hid-sony.")
+		} else {
+			r.add(checkWarn, "hid-sony", "not available in this kernel",
+				"Kernel may lack CONFIG_HID_SONY; the DS4 may not expose LED class entries.")
+		}
+	}
+
 	// Build tools are optional at runtime but useful for developers.
 	if p, err := exec.LookPath("go"); err == nil {
 		r.add(checkOK, "go toolchain", p, "")
