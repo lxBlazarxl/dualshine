@@ -106,7 +106,7 @@ func runDoctor(w io.Writer, version string) int {
 	// Kernel support for the sysfs LED backend.
 	if _, err := os.Stat("/sys/class/leds"); err != nil {
 		r.add(checkFail, "kernel LED class", "/sys/class/leds is missing",
-			"Kernel needs CONFIG_LEDS_CLASS and a mounted sysfs. The sysfs backend cannot work.")
+			"Check the sysfs mount and CONFIG_LEDS_CLASS, or boot a distro kernel. See docs/LED-SUPPORT.md.")
 	} else {
 		r.add(checkOK, "kernel LED class", "/sys/class/leds", "")
 	}
@@ -171,7 +171,7 @@ func runDoctor(w io.Writer, version string) int {
 			detail = st.Err
 		}
 		r.add(checkWarn, "controller", detail,
-			"Connect the DS4 over USB/Bluetooth and press r in the TUI; demo mode still works.")
+			"Connect the DS4, check hid-sony, and press r. See docs/LED-SUPPORT.md; demo mode still works.")
 	} else {
 		detail := "DS4 lightbar found"
 		if !st.Sony {
@@ -201,7 +201,7 @@ func runDoctor(w io.Writer, version string) int {
 		if len(hidraws) > 0 {
 			detail := "Sony HID device present: " + strings.Join(hidraws, ", ")
 			r.add(checkWarn, "hidraw", detail,
-				"The kernel is not exposing it through the LED class. Enable hid-sony or use --demo; direct HID output is not implemented yet.")
+				"The kernel is not exposing it through the LED class. Enable hid-sony or use --demo; see docs/LED-SUPPORT.md.")
 		} else {
 			r.add(checkInfo, "hidraw", "no Sony HID device detected", "")
 		}
